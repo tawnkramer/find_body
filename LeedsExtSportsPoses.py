@@ -232,7 +232,7 @@ model = get_model(width, height, ch, num_outputs)
 model_name = 'find_part.h5'
 
 callbacks = [
-        keras.callbacks.EarlyStopping(monitor='val_loss', patience=5, verbose=0),
+        keras.callbacks.EarlyStopping(monitor='val_loss', patience=20, verbose=0),
         keras.callbacks.ModelCheckpoint(model_name, monitor='val_loss', save_best_only=True, verbose=0),
     ]
 
@@ -245,5 +245,5 @@ history = model.fit_generator(train_generator,
         validation_steps = validation_steps,
         epochs=epochs,
         verbose=1,
-        callbacks=None)
+        callbacks=callbacks)
 
