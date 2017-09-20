@@ -2,8 +2,8 @@
 Find Body Part 0.1
 
 Usage:
-    find_body.py train [--model=<filename>] [--iJoint=<number>]
-    find_body.py predict [--sample=0] [--model=<filename>] [--iJoint=<number of joint>]
+    find_body.py train [--model=<filename>] [--joint=<number>] [--batch_size=<number>]
+    find_body.py predict [--sample=0] [--model=<filename>] [--joint=<number of joint>]
     find_body.py list
     find_body.py (-h | --help)
     find_body.py --version
@@ -12,12 +12,13 @@ Options:
     -h --help     Show this screen.
     --version     Show version.
     --model=<filename>   Name of NN model file [default: find_body.h5].
-    --iJoint=<number>]   Index of joint [default: 0]
+    --joint=<number>]   Index of joint [default: 0], use verb: list for full list of joints.
+    --batch_size=<number> Number of samples in calc of gradients before backprop [default:64]
     
 Verbs:
     train           Import the database and train a NN to find the joint
     predict         Use a sample from the test set and test predicted vs marked
-    list            Show the list of joints options
+    list            Show the list of joints options. Use number as arg to --joint.
 '''
 import os
 import sys
@@ -188,9 +189,8 @@ def get_dn_model(opts):
     height, width, ch = opts['height'], opts['width'], opts['ch']
     num_outputs = opts['num_outputs']
     input_shape=(height, width, ch)
-    outputs = custom_out
 
-    model = DenseNet(input_shape=input_shape, outputs=outputs)
+    model = DenseNet(input_shape=input_shape, output_fn=custom_out)
 
     model.compile(optimizer=Adam(), loss="mse")
     return model    
@@ -268,7 +268,6 @@ def train(opts):
     train_set = get_set(lsp, 'train')
     test_set = get_set(lsp, 'test')
 
-    opts['batch_size'] = 1
     epochs = 100
     
     train_generator = generator(train_set, opts)
@@ -329,7 +328,8 @@ if __name__ == "__main__":
             'width' : 400, 
             'ch' : 3,
             'num_outputs' : 2,
-            'iJoint' : int(args['--iJoint']),
+            'batch_size': int(args['--batch_size']),
+            'iJoint' : int(args['--joint']),
             'args' : args }
     
     if args['train']:
