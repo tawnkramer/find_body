@@ -2,7 +2,7 @@
 Find Body Part 0.1
 
 Usage:
-    find_body.py train [--model=<filename>] [--iJoint=<number of joint>]
+    find_body.py train [--model=<filename>] [--iJoint=<number>]
     find_body.py predict [--sample=0] [--model=<filename>] [--iJoint=<number of joint>]
     find_body.py list
     find_body.py (-h | --help)
@@ -233,9 +233,6 @@ def train(opts):
     # return a loader of the dataset
     lsp = dbc.load('leeds_sports_pose_extended')
 
-    print(lsp.sets)
-
-    set_name = 'test' #'train'
     model_name = opts['model_name']
     train_set = get_set(lsp, 'train')
     test_set = get_set(lsp, 'test')
@@ -290,6 +287,7 @@ def list_joints(opts):
     print('----Joints-----')
     for i, joint in enumerate(joints):
         print(i, joint)
+    
     
 if __name__ == "__main__":
     args = docopt(__doc__, version='Find Body Parts 0.1')
