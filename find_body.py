@@ -41,6 +41,8 @@ from keras.layers import Activation, Dropout, Flatten, Dense
 from keras.layers import Cropping2D, BatchNormalization
 from keras.optimizers import Adam
 
+sys.path.append('DenseNet')
+from DenseNet.densenet import DenseNet
 
 def get_set(lsp, set_name):
     num_samples = lsp.get(set_name, 'image_filenames').shape[0]
@@ -160,12 +162,41 @@ def get_model(opts):
     model.add(Dense(128))
     model.add(ELU())
     model.add(Dense(num_outputs))
-
+    
     model.compile(optimizer=Adam(), loss="mse")
+
+    
     return model
 
+def custom_out(x):
+    x = Conv2D(2, (3, 3), strides=(2, 2))(x)
+    x = ELU()(x)
+    x = Conv2D(2, (3, 3), strides=(2, 2))(x)
+    x = ELU()(x)
+    x = Conv2D(2, (3, 3), strides=(2, 2))(x)
+    x = ELU()(x)
+    #x = Dense(2)(x)
+    x = Flatten()(x)
+    #x = Dense(1000)(x)
+    #x = ELU()(x)
+    x = Dense(128)(x)
+    x = ELU()(x)
+    x = Dense(2)(x)
+    return x
+
+def get_dn_model(opts):
+    height, width, ch = opts['height'], opts['width'], opts['ch']
+    num_outputs = opts['num_outputs']
+    input_shape=(height, width, ch)
+    outputs = custom_out
+
+    model = DenseNet(input_shape=input_shape, outputs=outputs)
+
+    model.compile(optimizer=Adam(), loss="mse")
+    return model    
+
 def show_model_summary(model):
-    #model.summary()
+    model.summary()
     for layer in model.layers:
         print(layer.output_shape)
         
@@ -237,7 +268,7 @@ def train(opts):
     train_set = get_set(lsp, 'train')
     test_set = get_set(lsp, 'test')
 
-    opts['batch_size'] = 64
+    opts['batch_size'] = 1
     epochs = 100
     
     train_generator = generator(train_set, opts)
@@ -246,7 +277,8 @@ def train(opts):
     steps_per_epoch = n_train // opts['batch_size']
     validation_steps = n_val // opts['batch_size']
 
-    model = get_model(opts)
+    #model = get_model(opts)
+    model = get_dn_model(opts)
 
     #show_model_summary(model)
 
