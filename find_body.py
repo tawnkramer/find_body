@@ -35,15 +35,15 @@ from docopt import docopt
 
 import keras.backend as K
 import keras
-from keras.models import Sequential
-from keras.layers import Conv2D, MaxPooling2D
+from keras.models import Sequential, Model
+from keras.layers import Conv2D, MaxPooling2D, Input
 from keras.layers import Dense, Lambda, ELU
 from keras.layers import Activation, Dropout, Flatten, Dense
 from keras.layers import Cropping2D, BatchNormalization
 from keras.optimizers import Adam
 
 sys.path.append('DenseNet')
-from DenseNet.densenet import DenseNet
+from DenseNet.densenet import DenseNet, DenseNetImageNet121
 
 def get_set(lsp, set_name):
     num_samples = lsp.get(set_name, 'image_filenames').shape[0]
@@ -185,12 +185,46 @@ def custom_out(x):
     x = Dense(2)(x)
     return x
 
+def fix_imagenet(model, input_shape):
+    print("Loaded Model")
+    model.summary()
+    model.layers.pop()    
+    model.layers.pop()
+
+    #freeze all layers with weights loaded
+    for layer in model.layers:
+        layer.trainable = False
+
+    x = model.layers[-1].output
+    
+    x = Conv2D(64, (3, 3), strides=(1, 1))(x)
+    x = ELU()(x)
+    x = Conv2D(64, (3, 3), strides=(1, 1))(x)
+    x = ELU()(x)
+    x = Conv2D(64, (3, 3), strides=(1, 1))(x)
+    x = ELU()(x)
+    x = Flatten()(x)
+    x = Dense(1000)(x)
+    x = ELU()(x)
+    x = Dense(128)(x)
+    x = ELU()(x)
+    x = Dense(2)(x)
+
+    model2 = Model(input=model.input, output=[x])
+    print("New Model")
+    model2.summary()
+    return model2
+
+
 def get_dn_model(opts):
     height, width, ch = opts['height'], opts['width'], opts['ch']
     num_outputs = opts['num_outputs']
     input_shape=(height, width, ch)
 
-    model = DenseNet(input_shape=input_shape, output_fn=custom_out)
+    #model = DenseNet(input_shape=input_shape, output_fn=custom_out)
+
+    model = DenseNetImageNet121(input_shape=input_shape)
+    model = fix_imagenet(model, input_shape)
 
     model.compile(optimizer=Adam(), loss="mse")
     return model    
@@ -276,8 +310,8 @@ def train(opts):
     steps_per_epoch = n_train // opts['batch_size']
     validation_steps = n_val // opts['batch_size']
 
-    #model = get_model(opts)
-    model = get_dn_model(opts)
+    model = get_model(opts)
+    #model = get_dn_model(opts)
 
     #show_model_summary(model)
 
@@ -297,19 +331,20 @@ def train(opts):
 
 def predict(opts):
     lsp = dbc.load('leeds_sports_pose_extended')
-    test_set = get_set(lsp, 'test')
+    test_set = get_set(lsp, 'train')
     
     model = keras.models.load_model(opts['model_name'])
-    iSample = int(opts['args']['--sample'])
-    sample = test_set[iSample]
-    filename = sample["filename"]
-    keypoints = sample["keypoints"]
+    iStart = int(opts['args']['--sample'])
+    for iSample in range(iStart, iStart + 10):
+        sample = test_set[iSample]
+        filename = sample["filename"]
+        keypoints = sample["keypoints"]
 
-    image = get_image_data(filename, opts)
-    outputs = model.predict(image[None, :, :, :])
-    print(outputs)
-    
-    show_pred(image, sample, outputs)
+        image = get_image_data(filename, opts)
+        outputs = model.predict(image[None, :, :, :])
+        print(outputs)
+        
+        show_pred(image, sample, outputs)
     
     
 def list_joints(opts):
@@ -323,12 +358,17 @@ def list_joints(opts):
 if __name__ == "__main__":
     args = docopt(__doc__, version='Find Body Parts 0.1')
     
+    bs = args['--batch_size']
+
+    if bs is None:
+        bs = 64
+
     opts = { 'model_name' : args['--model'],
             'height' : 400, 
             'width' : 400, 
             'ch' : 3,
             'num_outputs' : 2,
-            'batch_size': int(args['--batch_size']),
+            'batch_size': int(bs),
             'iJoint' : int(args['--joint']),
             'args' : args }
     
